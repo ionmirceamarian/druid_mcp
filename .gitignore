@@ -1,0 +1,14 @@
+swagger.json
+/node_modules
+/dist
+/build
+/.env
+/.vscode
+/.claude
+/.idea
+/dumps
+.DS_Store
+*.log
+*.tmp
+*.env
+*.env.example
