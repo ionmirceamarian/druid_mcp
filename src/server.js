@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema
@@ -202,6 +203,18 @@ if (mode === 'stdio') {
 
     // Pass raw req/res — let the SDK handle body parsing
     await transport.handlePostMessage(req, res);
+  });
+
+  // Streamable HTTP transport (used by Claude desktop app and modern clients)
+  app.post('/mcp', express.json(), async (req, res) => {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createServer();
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  app.get('/mcp', async (req, res) => {
+    res.status(405).json({ error: 'Use POST /mcp for Streamable HTTP or GET /sse for SSE' });
   });
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', server: 'druid-mcp', sessions: sessions.size }));
