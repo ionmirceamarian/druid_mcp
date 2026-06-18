@@ -67,6 +67,24 @@ import { getPendingChangesTool }                      from './tools/getPendingCh
 import { getPublishStatusTool }                       from './tools/getPublishStatus.js';
 import { publishChangesTool }                         from './tools/publishChanges.js';
 
+// Views (EntityMetadata WebViews) tools
+import { getEntityWebViewsTool }                      from './tools/getEntityWebViews.js';
+import { getEntityViewForEditTool }                   from './tools/getEntityViewForEdit.js';
+import { createOrUpdateViewTool }                     from './tools/createOrUpdateView.js';
+import { deleteEntityWebViewTool }                    from './tools/deleteEntityWebView.js';
+import { setEntityWebViewAsDefaultTool }              from './tools/setEntityWebViewAsDefault.js';
+import { cloneEntityWebViewTool }                     from './tools/cloneEntityWebView.js';
+import { getWebViewRolesTool }                        from './tools/getWebViewRoles.js';
+import { updateWebViewRolesTool }                     from './tools/updateWebViewRoles.js';
+import { getRelatedWebViewsTool }                     from './tools/getRelatedWebViews.js';
+import { setWebViewsOrderNumberTool }                 from './tools/setWebViewsOrderNumber.js';
+
+// Dashboard tools
+import { getDashboardsTool }                          from './tools/getDashboards.js';
+import { getDashboardForEditTool }                    from './tools/getDashboardForEdit.js';
+import { createOrUpdateDashboardTool }                from './tools/createOrUpdateDashboard.js';
+import { deleteDashboardTool }                        from './tools/deleteDashboard.js';
+
 const tools = [
   setConfigTool,
   getAiAgentsTool,
@@ -119,7 +137,23 @@ const tools = [
   // Publish tools
   getPendingChangesTool,
   getPublishStatusTool,
-  publishChangesTool
+  publishChangesTool,
+  // Views tools
+  getEntityWebViewsTool,
+  getEntityViewForEditTool,
+  createOrUpdateViewTool,
+  deleteEntityWebViewTool,
+  setEntityWebViewAsDefaultTool,
+  cloneEntityWebViewTool,
+  getWebViewRolesTool,
+  updateWebViewRolesTool,
+  getRelatedWebViewsTool,
+  setWebViewsOrderNumberTool,
+  // Dashboard tools
+  getDashboardsTool,
+  getDashboardForEditTool,
+  createOrUpdateDashboardTool,
+  deleteDashboardTool
 ];
 
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
