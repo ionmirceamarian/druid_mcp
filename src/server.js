@@ -12,6 +12,7 @@ import express from 'express';
 import { getAiAgentsTool }             from './tools/getAiAgents.js';
 import { getSolutionsTool }            from './tools/getSolutions.js';
 import { getEntitiesTool }             from './tools/getEntities.js';
+import { getEntityFieldsTool }         from './tools/getEntityFields.js';
 import { createEntityTool }            from './tools/createEntity.js';
 import { createFieldTool }             from './tools/createField.js';
 import { setConfigTool }               from './tools/setConfig.js';
@@ -59,7 +60,9 @@ import { getConnectorActionRelatedAppsTool }          from './tools/getConnector
 import { cloneConnectorActionTool }                   from './tools/cloneConnectorAction.js';
 import { getConnectorHistoryPagedTool }               from './tools/getConnectorHistoryPaged.js';
 import { getRestConnectorTaskForEditTool }            from './tools/getRestConnectorTaskForEdit.js';
+import { getRestConnectorTaskMappingsTool }           from './tools/getRestConnectorTaskMappings.js';
 import { createOrUpdateRestConnectorTaskTool }        from './tools/createOrUpdateRestConnectorTask.js';
+import { patchRestConnectorTaskTool }                 from './tools/patchRestConnectorTask.js';
 import { testRestConnectorTaskTool }                  from './tools/testRestConnectorTask.js';
 
 // Publish tools
@@ -90,6 +93,7 @@ const tools = [
   getAiAgentsTool,
   getSolutionsTool,
   getEntitiesTool,
+  getEntityFieldsTool,
   createEntityTool,
   createFieldTool,
   // Flow tools
@@ -132,7 +136,9 @@ const tools = [
   cloneConnectorActionTool,
   getConnectorHistoryPagedTool,
   getRestConnectorTaskForEditTool,
+  getRestConnectorTaskMappingsTool,
   createOrUpdateRestConnectorTaskTool,
+  patchRestConnectorTaskTool,
   testRestConnectorTaskTool,
   // Publish tools
   getPendingChangesTool,

@@ -2,7 +2,12 @@ import { apiFetch } from '../auth.js';
 
 export const getConnectorActionsTool = {
   name: 'get_connector_actions',
-  description: 'List integrations (connector actions). Supports filtering by name, solution, task type, connector code, etc. Returns PagedResultDtoOfConnectorActionListDto.',
+  description: `List integrations (connector actions). Returns PagedResultDtoOfConnectorActionListDto.
+
+IMPORTANT — always filter to avoid huge responses:
+  • Use connectionCode (e.g. "Retailer API") to scope to a single connector — this is the most effective filter.
+  • Use filter for free-text name search within that scope.
+  • Default maxResultCount is 10. Avoid skipPaging:true without connectionCode — it can return 600KB+.`,
   inputSchema: {
     type: 'object',
     properties: {
