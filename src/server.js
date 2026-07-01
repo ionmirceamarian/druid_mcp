@@ -29,6 +29,9 @@ import { getLinkTool }                 from './tools/getLink.js';
 import { saveLinkTool }                from './tools/saveLink.js';
 import { getFlowsPagedTool }           from './tools/getFlowsPaged.js';
 import { getEntitiesFlowContextTool }  from './tools/getEntitiesFlowContext.js';
+import { getFlowStepsByFlowIdTool }    from './tools/getFlowStepsByFlowId.js';
+import { getFlowStepForEditTool }      from './tools/getFlowStepForEdit.js';
+import { getAllLinksTool }             from './tools/getAllLinks.js';
 
 // Debug tools
 import { getAdminConversationHistoryPagedTool }       from './tools/getAdminConversationHistoryPaged.js';
@@ -108,6 +111,9 @@ const tools = [
   saveLinkTool,
   getFlowsPagedTool,
   getEntitiesFlowContextTool,
+  getFlowStepsByFlowIdTool,
+  getFlowStepForEditTool,
+  getAllLinksTool,
   // Debug tools
   getAdminConversationHistoryPagedTool,
   getBotForEditTool,
