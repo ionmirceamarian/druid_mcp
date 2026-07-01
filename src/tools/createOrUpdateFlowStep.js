@@ -34,8 +34,17 @@ export const createOrUpdateFlowStepTool = {
     }
   },
   async execute(args) {
+    // The real API field is "metadata", but this tool's schema (and callers) use "meta".
+    // Map it through so metadata edits (system prompts, setVariables, conditions, etc.)
+    // actually reach the API instead of being silently dropped.
+    const { meta, ...restFlowStep } = args.flowStep ?? {};
+    const flowStep = {
+      ...restFlowStep,
+      metadata: meta !== undefined ? meta : args.flowStep?.metadata
+    };
+
     const body = {
-      flowStep: args.flowStep,
+      flowStep,
       parentFlowStepId: args.parentFlowStepId ?? null,
       addAutoConnectorAction: args.addAutoConnectorAction ?? false,
       createNewTaskCode: args.createNewTaskCode ?? null,
