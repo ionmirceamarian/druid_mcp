@@ -167,6 +167,19 @@ chat_send_message { "botId": "<agent-uuid>", "text": "Yes" }            # answer
 chat_send_message { "botId": "<agent-uuid>", "text": "hi", "newConversation": true }
 ```
 
+#### When the runtime replies late
+
+Some runtimes answer the synchronous POST immediately with an **empty activity envelope** and only
+produce the agent's real reply a few seconds later (LLM/agentic steps), while exposing no
+`/getMessages` route to collect it from. `chat_send_message` handles this: when the HTTP response
+carries no activity, it reads the agent's replies for that `conversationId` out of
+**ConversationHistory** and returns them, tagged `repliesFrom: "conversation-history"`. Only rows
+newer than the current turn are returned, so replies never repeat. This path uses the admin API, so
+`set_config` (or the `API_*` environment variables) must be pointing at the tenant that owns the
+agent. Pass `readHistory: false` to switch it off and see the raw HTTP behaviour instead.
+
+`chat_get_messages` falls back the same way when `/getMessages` is not routed.
+
 The chat token lives one hour; the server re-authorizes automatically, reusing the same `conversationId`
 so the conversation context survives. If the agent has long polling enabled, pass `"longPolling": true`
 (and optionally `waitSeconds`) so the tool drains `/getMessages` until the agent goes quiet.

@@ -15,9 +15,11 @@
 // derived from API_BASE_URL and from the authorize response, and pins whichever works.
 
 import fetch from 'node-fetch';
-import { getToken } from './auth.js';
+import { getToken, apiFetch } from './auth.js';
 
 export const CHANNEL_ID = 'GenericChat';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const AUTHORIZE_PATH = '/api/services/app/Chat/AuthorizeAnonymousAsync';
 
 // botId (lowercase) -> session
@@ -382,12 +384,118 @@ export function filterActivities(activities) {
  * Send / poll
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * ConversationHistory fallback
+ *
+ * Some runtimes answer the synchronous POST with an empty activity
+ * envelope and produce the real reply a few seconds later (LLM/agentic
+ * steps). When the agent also has no /getMessages route, the replies are
+ * still recorded against the conversation in ConversationHistory — so we
+ * read them from there. Needs the admin API credentials (set_config).
+ * ------------------------------------------------------------------ */
+
+/** One page of bot-authored Generic Chat messages for this conversation. */
+async function fetchHistoryPage(session) {
+  const params = new URLSearchParams();
+  params.set('QueryParams.BotId',          session.botId);
+  params.set('QueryParams.ConversationId', session.conversationId);
+  params.set('PageSize',   '50');
+  params.set('PageNumber', '1');
+
+  const data = await apiFetch(`/api/services/app/ConversationHistory/GetAdminConversationHistoryPaged?${params}`);
+  const items = (data.result ?? data)?.items ?? [];
+
+  return items.filter(i =>
+    i.originator === 1 &&                       // the agent, not us
+    i.channelId === 'generic-chat' &&           // not the DirectLine mirror
+    i.message &&
+    !i.isSystemMessage
+  );
+}
+
+/** Shape a history row like an activity, so replies look the same either way. */
+function historyRowToActivity(row) {
+  return {
+    type: 'message',
+    text: row.message,
+    channelId: CHANNEL_ID,
+    source: 'conversation-history',
+    flowName: row.flowName ?? undefined,
+    flowStepName: row.flowStepName ?? undefined,
+    language: row.language ?? undefined,
+    timestamp: row.dateUtc,
+    historyId: row.id
+  };
+}
+
+/**
+ * Poll ConversationHistory until the agent goes quiet.
+ * Only rows newer than what this session has already reported are returned.
+ */
+export async function readHistoryReplies(session, { waitSeconds = 20, intervalMs = 1500 } = {}) {
+  const deadline = Date.now() + waitSeconds * 1000;
+  const collected = [];
+  let emptyStreak = 0;
+  let polls = 0;
+  let lastError = null;
+
+  while (Date.now() < deadline) {
+    polls += 1;
+    let rows = [];
+    try {
+      rows = await fetchHistoryPage(session);
+    } catch (err) {
+      lastError = err.message;                  // no admin creds / API down
+      break;
+    }
+
+    const fresh = rows
+      .filter(r => r.id > (session.lastHistoryId ?? 0))
+      .sort((a, b) => a.id - b.id);
+
+    if (fresh.length) {
+      session.lastHistoryId = fresh[fresh.length - 1].id;
+      collected.push(...fresh.map(historyRowToActivity));
+      emptyStreak = 0;
+    } else {
+      emptyStreak += 1;
+      if (collected.length && emptyStreak >= 2) break;
+    }
+
+    await sleep(intervalMs);
+  }
+
+  return { activities: collected, polls, error: lastError };
+}
+
+/**
+ * Mark everything already in the conversation as seen, so the next read
+ * returns only what the agent says from now on.
+ */
+export async function markHistorySeen(session) {
+  try {
+    const rows = await fetchHistoryPage(session);
+    session.lastHistoryId = rows.reduce((m, r) => Math.max(m, r.id), session.lastHistoryId ?? 0);
+  } catch {
+    // fallback unavailable; the caller surfaces the error if it is needed
+  }
+}
+
 /**
  * POST to the AI Agent URL, probing candidate hosts on the first call
  * and pinning the one that answers.
  */
 async function callAgent(session, suffix, body) {
-  const bases = session.agentBase ? [session.agentBase] : session.agentCandidates;
+  // Pin per endpoint kind: on some deployments /messages and /messages/getMessages
+  // are not served by the same host, so a host proven for one must not
+  // short-circuit the search for the other.
+  session.pinned = session.pinned ?? {};
+
+  const pinned = session.pinned[suffix];
+  const bases = pinned
+    ? [pinned]
+    : uniq([session.agentBase, ...session.agentCandidates]);
+
   if (!bases.length) {
     throw new Error('No AI Agent URL. Copy it from the Druid Generic Chat channel dialog and pass it to chat_set_endpoints.');
   }
@@ -407,17 +515,22 @@ async function callAgent(session, suffix, body) {
       continue;
     }
 
-    session.agentBase = base;
     if (!res.ok) {
+      // A real answer from a reachable endpoint — report it rather than
+      // masking it by probing on, but do not pin a failing host.
       throw new Error(`Generic Chat request failed at ${url} (${res.status}): ${trim(res.text)}`);
     }
+
+    session.pinned[suffix] = base;
+    if (suffix === '/messages') session.agentBase = base;
     return res;
   }
 
   const allNotFound = tried.every(t => t.endsWith('404'));
   const hint = (suffix.includes('getMessages') && allNotFound)
-    ? `Every candidate returned 404 for getMessages, which is what the runtime does when the agent does NOT have ` +
-      `"Enable long polling" turned on. Use the synchronous path (longPolling=false) for this agent.`
+    ? `Every candidate returned 404 for getMessages. This runtime does not serve the long-polling ` +
+      `endpoint documented for the Druid Generic Chat channel — use the synchronous path ` +
+      `(longPolling=false); chat_send_message will read late replies from ConversationHistory.`
     : `Copy the "AI Agent URL" from the agent's Druid Generic Chat channel dialog and pass it to chat_set_endpoints.`;
 
   throw new Error(`Could not reach the AI Agent URL. Tried:\n  ${tried.join('\n  ')}\n${hint}`);
@@ -446,8 +559,6 @@ export async function pollMessages(session) {
   });
   return { activities: toActivities(res.data), http: res };
 }
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
  * Poll until the agent goes quiet: stops after `waitSeconds`, or once

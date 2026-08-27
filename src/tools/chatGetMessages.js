@@ -1,4 +1,4 @@
-import { getSession, drainMessages, summarize, publicSession, describeResponse } from '../genericChat.js';
+import { getSession, drainMessages, summarize, publicSession, describeResponse, readHistoryReplies } from '../genericChat.js';
 
 export const chatGetMessagesTool = {
   name: 'chat_get_messages',
@@ -16,11 +16,26 @@ export const chatGetMessagesTool = {
 
   async execute(args) {
     const session = await getSession(args.botId, {});
-    const { activities, http, polls } = await drainMessages(session, {
-      waitSeconds: args.waitSeconds ?? 15
-    });
+
+    let activities = [], http = null, polls = 0, via = 'getMessages', pollError;
+    try {
+      ({ activities, http, polls } = await drainMessages(session, {
+        waitSeconds: args.waitSeconds ?? 15
+      }));
+    } catch (err) {
+      // No /getMessages route on this runtime — read the replies from history instead.
+      pollError = err.message;
+      via = 'conversation-history';
+      const fromHistory = await readHistoryReplies(session, {
+        waitSeconds: args.waitSeconds ?? 15
+      });
+      activities = fromHistory.activities;
+      polls = fromHistory.polls;
+    }
 
     return {
+      via,
+      pollError,
       session: publicSession(session),
       replies: activities.map(summarize),
       replyCount: activities.length,
