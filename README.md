@@ -114,6 +114,68 @@ Changes to entities, connectors, and integrations are saved as drafts and must b
 
 ---
 
+### Chat (test the agent)
+
+Send real messages to an AI Agent through the **Druid Generic Chat** channel and read its replies —
+the fastest way to smoke-test a flow after publishing it.
+
+> The channel must be added **and published** on the agent first:
+> *AI Agent settings → Channels → "Druid Generic Chat"*. Turn on **Enable long polling** there if the
+> agent should push replies asynchronously.
+
+| Tool | Description |
+|------|-------------|
+| `chat_set_endpoints` | Register the Authorize URL and AI Agent URL copied from the channel dialog (per agent, or as a default for all) |
+| `chat_send_message` | Send a message to an agent and get its replies. Authorizes on first use and keeps one conversation per bot, so follow-up calls continue the same conversation |
+| `chat_start_session` | Explicitly start/restart a conversation (optionally with a `queryString` such as `phone=+40712345678` to prefill `[[ChatUser]]` fields) |
+| `chat_get_messages` | Long polling — fetch pending replies without sending anything |
+| `chat_list_sessions` | List the in-memory conversations (bot, conversationId, userId, turns, token lifetime, resolved URLs) |
+| `chat_end_session` | Forget a cached conversation so the next message starts fresh |
+
+#### Endpoints
+
+The chat runtime does **not** live on the portal host from `API_BASE_URL`. The channel dialog shows
+the two URLs to use, on separate hosts:
+
+| | Example |
+|---|---|
+| Authorize URL | `https://druidapi.druidplatform.com/api/services/app/Chat/AuthorizeAnonymousAsync` |
+| AI Agent URL | `https://druidbotapp-po0.druidplatform.com/api/generic-chat/{botId}/messages` |
+| Long polling | the AI Agent URL + `/getMessages` |
+
+Paste them once and everything else is automatic:
+
+```
+chat_set_endpoints {
+  "botId": "<agent-uuid>",
+  "authorizeUrl": "https://druidapi.druidplatform.com/api/services/app/Chat/AuthorizeAnonymousAsync",
+  "agentUrl": "https://druidbotapp-po0.druidplatform.com/api/generic-chat/<agent-uuid>/messages"
+}
+```
+
+Omit `botId` to make them the default for every agent, or set `CHAT_AUTHORIZE_URL` / `CHAT_AGENT_URL`
+in `.env` (a `{botId}` placeholder is substituted). If nothing is registered, the client probes a short
+candidate list — the portal host, then `druidapi.*` / `druidbotapp-po<N>.*` derived from it and from the
+authorize response — and pins whichever answers; the resolved URLs come back on every session so you can
+see what it picked.
+
+#### Sending
+
+```
+chat_send_message { "botId": "<agent-uuid>", "text": "hello" }
+chat_send_message { "botId": "<agent-uuid>", "text": "Yes" }            # answer a choice step with the button text
+chat_send_message { "botId": "<agent-uuid>", "text": "hi", "newConversation": true }
+```
+
+The chat token lives one hour; the server re-authorizes automatically, reusing the same `conversationId`
+so the conversation context survives. If the agent has long polling enabled, pass `"longPolling": true`
+(and optionally `waitSeconds`) so the tool drains `/getMessages` until the agent goes quiet.
+Replies are returned both summarized (text, choices, attachments) and raw.
+
+See the [Druid Generic Chat docs](https://docs.druidai.com/docs/Content/Channels/Druid_Generic_Chat.htm).
+
+---
+
 ## Setup
 
 ### 1. Install dependencies
@@ -206,6 +268,7 @@ Tokens are fetched once via `POST /api/TokenAuth/Authenticate` and cached for 23
 druid_mcp/
 ├── src/
 │   ├── auth.js                                  # Token auth + cached apiFetch helper
+│   ├── genericChat.js                           # Generic Chat client (authorize / send / poll)
 │   ├── server.js                                # MCP server entry point (stdio + HTTP/SSE)
 │   └── tools/
 │       ├── setConfig.js                         # Runtime config update
@@ -254,7 +317,13 @@ druid_mcp/
 │       ├── getBotForEdit.js
 │       ├── getConnectorActionHistoryDataById.js
 │       ├── getIntegrationLog.js
-│       └── getConversationContexts.js
+│       ├── getConversationContexts.js
+│       ├── chatSetEndpoints.js                   # Chat (Generic Chat) test tools
+│       ├── chatStartSession.js
+│       ├── chatSendMessage.js
+│       ├── chatGetMessages.js
+│       ├── chatListSessions.js
+│       └── chatEndSession.js
 ├── .env.example
 ├── package.json
 └── swagger.json

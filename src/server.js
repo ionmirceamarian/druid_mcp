@@ -85,6 +85,14 @@ import { updateWebViewRolesTool }                     from './tools/updateWebVie
 import { getRelatedWebViewsTool }                     from './tools/getRelatedWebViews.js';
 import { setWebViewsOrderNumberTool }                 from './tools/setWebViewsOrderNumber.js';
 
+// Chat (Druid Generic Chat) — test the AI agent by sending it messages
+import { chatSetEndpointsTool }                     from './tools/chatSetEndpoints.js';
+import { chatStartSessionTool }                     from './tools/chatStartSession.js';
+import { chatSendMessageTool }                      from './tools/chatSendMessage.js';
+import { chatGetMessagesTool }                      from './tools/chatGetMessages.js';
+import { chatListSessionsTool }                     from './tools/chatListSessions.js';
+import { chatEndSessionTool }                       from './tools/chatEndSession.js';
+
 // Dashboard tools
 import { getDashboardsTool }                          from './tools/getDashboards.js';
 import { getDashboardForEditTool }                    from './tools/getDashboardForEdit.js';
@@ -165,7 +173,14 @@ const tools = [
   getDashboardsTool,
   getDashboardForEditTool,
   createOrUpdateDashboardTool,
-  deleteDashboardTool
+  deleteDashboardTool,
+  // Chat (Druid Generic Chat) test tools
+  chatSetEndpointsTool,
+  chatStartSessionTool,
+  chatSendMessageTool,
+  chatGetMessagesTool,
+  chatListSessionsTool,
+  chatEndSessionTool
 ];
 
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
