@@ -173,7 +173,26 @@ async function postJson(url, body, { bearer } = {}) {
   const text = await res.text();
   let data = null;
   if (text) { try { data = JSON.parse(text); } catch { data = null; } }
-  return { url, ok: res.ok, status: res.status, data, text };
+  return {
+    url,
+    ok: res.ok,
+    status: res.status,
+    contentType: res.headers.get('content-type') ?? null,
+    data,
+    text
+  };
+}
+
+/** Compact description of a raw HTTP response, for when nothing parses into activities. */
+export function describeResponse(res) {
+  if (!res) return null;
+  return {
+    url:         res.url,
+    status:      res.status,
+    contentType: res.contentType,
+    bodyLength:  res.text ? res.text.length : 0,
+    body:        res.text ? trim(res.text, 800) : '(empty body)'
+  };
 }
 
 /** true when the response means "wrong host / not this endpoint" — keep probing. */
@@ -395,10 +414,13 @@ async function callAgent(session, suffix, body) {
     return res;
   }
 
-  throw new Error(
-    `Could not reach the AI Agent URL. Tried:\n  ${tried.join('\n  ')}\n` +
-    `Copy the "AI Agent URL" from the agent's Druid Generic Chat channel dialog and pass it to chat_set_endpoints.`
-  );
+  const allNotFound = tried.every(t => t.endsWith('404'));
+  const hint = (suffix.includes('getMessages') && allNotFound)
+    ? `Every candidate returned 404 for getMessages, which is what the runtime does when the agent does NOT have ` +
+      `"Enable long polling" turned on. Use the synchronous path (longPolling=false) for this agent.`
+    : `Copy the "AI Agent URL" from the agent's Druid Generic Chat channel dialog and pass it to chat_set_endpoints.`;
+
+  throw new Error(`Could not reach the AI Agent URL. Tried:\n  ${tried.join('\n  ')}\n${hint}`);
 }
 
 /** POST {agentUrl}  — synchronous send */
@@ -414,7 +436,7 @@ export async function sendActivity(session, text, { timeout = 50 } = {}) {
   });
 
   session.turns += 1;
-  return toActivities(res.data);
+  return { activities: toActivities(res.data), http: res };
 }
 
 /** POST {agentUrl}/getMessages — long polling */
@@ -422,7 +444,7 @@ export async function pollMessages(session) {
   const res = await callAgent(session, '/messages/getMessages', {
     conversationId: session.conversationId
   });
-  return toActivities(res.data);
+  return { activities: toActivities(res.data), http: res };
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -435,9 +457,15 @@ export async function drainMessages(session, { waitSeconds = 15, intervalMs = 10
   const deadline = Date.now() + waitSeconds * 1000;
   const collected = [];
   let emptyStreak = 0;
+  let lastHttp = null;
+  let polls = 0;
 
   while (Date.now() < deadline) {
-    const batch = filterActivities(await pollMessages(session));
+    const { activities, http } = await pollMessages(session);
+    lastHttp = http;
+    polls += 1;
+
+    const batch = filterActivities(activities);
     if (batch.length) {
       collected.push(...batch);
       emptyStreak = 0;
@@ -448,5 +476,5 @@ export async function drainMessages(session, { waitSeconds = 15, intervalMs = 10
     await sleep(intervalMs);
   }
 
-  return collected;
+  return { activities: collected, http: lastHttp, polls };
 }

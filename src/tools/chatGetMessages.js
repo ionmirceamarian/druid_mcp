@@ -1,4 +1,4 @@
-import { getSession, drainMessages, summarize, publicSession } from '../genericChat.js';
+import { getSession, drainMessages, summarize, publicSession, describeResponse } from '../genericChat.js';
 
 export const chatGetMessagesTool = {
   name: 'chat_get_messages',
@@ -16,7 +16,7 @@ export const chatGetMessagesTool = {
 
   async execute(args) {
     const session = await getSession(args.botId, {});
-    const activities = await drainMessages(session, {
+    const { activities, http, polls } = await drainMessages(session, {
       waitSeconds: args.waitSeconds ?? 15
     });
 
@@ -24,6 +24,8 @@ export const chatGetMessagesTool = {
       session: publicSession(session),
       replies: activities.map(summarize),
       replyCount: activities.length,
+      polls,
+      httpResponse: activities.length ? undefined : describeResponse(http),
       raw: activities
     };
   }

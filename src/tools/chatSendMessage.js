@@ -1,6 +1,6 @@
 import {
   getSession, sendActivity, drainMessages, filterActivities,
-  summarize, publicSession, setEndpoints
+  summarize, publicSession, setEndpoints, describeResponse
 } from '../genericChat.js';
 
 export const chatSendMessageTool = {
@@ -40,13 +40,15 @@ export const chatSendMessageTool = {
       timeout: args.timeout ?? 50
     });
 
-    let activities = filterActivities(sent);
+    let activities = filterActivities(sent.activities);
+    let lastHttp = sent.http;
 
     if (args.longPolling) {
       const polled = await drainMessages(session, {
         waitSeconds: args.waitSeconds ?? 15
       });
-      activities = [...activities, ...polled];
+      activities = [...activities, ...polled.activities];
+      if (polled.http) lastHttp = polled.http;
     }
 
     return {
@@ -58,7 +60,11 @@ export const chatSendMessageTool = {
         ? undefined
         : (args.longPolling
             ? 'No replies received within the wait window. Try a longer waitSeconds, or check the agent flow in the debugging tool.'
-            : 'No replies received. If the agent has "Enable long polling" turned on, call again with longPolling=true.'),
+            : 'The agent accepted the message but returned no activity. See httpResponse below for exactly what the runtime sent back. ' +
+              'Common causes: the agent replies only to a matched intent (welcome messages are routed to DirectLine, not Generic Chat), ' +
+              'the channel is added but the agent is not published, or the agent uses long polling (call again with longPolling=true).'),
+      // Surfaced only when nothing parsed, so a silent agent can be told apart from a parsing miss.
+      httpResponse: activities.length ? undefined : describeResponse(lastHttp),
       raw: activities
     };
   }
