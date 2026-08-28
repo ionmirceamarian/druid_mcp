@@ -199,7 +199,10 @@ export function describeResponse(res) {
 
 /** true when the response means "wrong host / not this endpoint" — keep probing. */
 function shouldTryNext(res) {
-  return res.unreachable || res.status === 404 || res.status === 405 || res.status === 501 || res.status === 502;
+  // 5xx from a reachable-but-wrong host must not abort the probe: the portal
+  // host answers /api/generic-chat/... with a 500 rather than a 404, which
+  // would otherwise mask the correct druidbotapp-po<N> candidate behind it.
+  return res.unreachable || res.status === 404 || res.status === 405 || res.status >= 500;
 }
 
 /* ------------------------------------------------------------------ *
@@ -554,7 +557,7 @@ export async function sendActivity(session, text, { timeout = 50 } = {}) {
 
 /** POST {agentUrl}/getMessages — long polling */
 export async function pollMessages(session) {
-  const res = await callAgent(session, '/messages/getMessages', {
+  const res = await callAgent(session, '/getMessages', {
     conversationId: session.conversationId
   });
   return { activities: toActivities(res.data), http: res };
