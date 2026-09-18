@@ -36,6 +36,7 @@ import { getFlowLightTool }            from './tools/getFlowLight.js';
 import { translateFlowStepTool }       from './tools/translateFlowStep.js';
 import { translateLinkConditionTool }  from './tools/translateLinkCondition.js';
 import { syncFlowLanguagesTool }       from './tools/syncFlowLanguages.js';
+import { findTranslatableContentTool } from './tools/findTranslatableContent.js';
 
 // Debug tools
 import { getAdminConversationHistoryPagedTool }       from './tools/getAdminConversationHistoryPaged.js';
@@ -130,6 +131,7 @@ const tools = [
   translateFlowStepTool,
   translateLinkConditionTool,
   syncFlowLanguagesTool,
+  findTranslatableContentTool,
   // Debug tools
   getAdminConversationHistoryPagedTool,
   getBotForEditTool,
