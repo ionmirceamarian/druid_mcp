@@ -32,6 +32,9 @@ import { getEntitiesFlowContextTool }  from './tools/getEntitiesFlowContext.js';
 import { getFlowStepsByFlowIdTool }    from './tools/getFlowStepsByFlowId.js';
 import { getFlowStepForEditTool }      from './tools/getFlowStepForEdit.js';
 import { getAllLinksTool }             from './tools/getAllLinks.js';
+import { getFlowLightTool }            from './tools/getFlowLight.js';
+import { translateFlowStepTool }       from './tools/translateFlowStep.js';
+import { translateLinkConditionTool }  from './tools/translateLinkCondition.js';
 
 // Debug tools
 import { getAdminConversationHistoryPagedTool }       from './tools/getAdminConversationHistoryPaged.js';
@@ -122,6 +125,9 @@ const tools = [
   getFlowStepsByFlowIdTool,
   getFlowStepForEditTool,
   getAllLinksTool,
+  getFlowLightTool,
+  translateFlowStepTool,
+  translateLinkConditionTool,
   // Debug tools
   getAdminConversationHistoryPagedTool,
   getBotForEditTool,
