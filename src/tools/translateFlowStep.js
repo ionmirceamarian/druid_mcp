@@ -55,7 +55,7 @@ function readVar(metaStr, left) {
 
 export const translateFlowStepTool = {
   name: 'translate_flow_step',
-  description: 'Patch one flow step in place, per language, without touching anything else. Set the step message and/or individual setVariables values for the default language, for named languages, or for all at once. Languages you do not name keep their current value byte-for-byte; the result warns about any language that now differs from or is missing against what you just wrote. Reads the step first and re-sends its full definition, so existing translations, botLanguages and metadata keys are preserved. Defaults to dryRun — pass dryRun:false to save. For structural changes (new steps, type changes, whole-metadata rewrites) use create_or_update_flow_step.',
+  description: 'Patch one flow step in place, per language, without touching anything else. Set the step message, the code extension, and/or individual setVariables values for the default language, for named languages, or for all at once. Languages you do not name keep their current value byte-for-byte; the result warns about any language that now differs from or is missing against what you just wrote. Reads the step first and re-sends its full definition, so existing translations, botLanguages and metadata keys are preserved. Defaults to dryRun — pass dryRun:false to save. For structural changes (new steps, type changes, whole-metadata rewrites) use create_or_update_flow_step.',
   inputSchema: {
     type: 'object',
     required: ['stepId'],
@@ -63,6 +63,10 @@ export const translateFlowStepTool = {
       stepId:  { type: 'string', description: 'Flow step ID (UUID)' },
       message: {
         description: 'New step message. A plain string targets the default language only. An object keyed by language code (e.g. {"en-US":"Hi","ar":"مرحبًا"}) targets exactly those languages.',
+        anyOf: [{ type: 'string' }, { type: 'object' }]
+      },
+      codeExtension: {
+        description: 'New code extension source. A plain string targets the default language only. An object keyed by language code targets exactly those languages. Pass an empty string to clear a language.',
         anyOf: [{ type: 'string' }, { type: 'object' }]
       },
       setVariables: {
@@ -90,7 +94,7 @@ export const translateFlowStepTool = {
     const changes = [];
     const skipped = [];
     const warnings = [];
-    const touched = { message: false, vars: [] };
+    const touched = { message: false, codeExtension: false, vars: [] };
 
     const msgIn = expand(args.message, defaultCode);
     if (msgIn) {
@@ -106,6 +110,22 @@ export const translateFlowStepTool = {
         changes.push({ field: 'message', language: code, before: truncate(before, 200), after: truncate(value, 200) });
       }
       touched.message = true;
+    }
+
+    const extIn = expand(args.codeExtension, defaultCode);
+    if (extIn) {
+      const targets = { ...extIn };
+      if (args.mirror && targets[defaultCode] !== undefined) {
+        for (const c of otherCodes) if (targets[c] === undefined) targets[c] = targets[defaultCode];
+      }
+      for (const [code, value] of Object.entries(targets)) {
+        if (code !== defaultCode && !allCodes.includes(code)) { skipped.push({ field: 'codeExtension', language: code, reason: 'not a bot language' }); continue; }
+        const before = code === defaultCode ? step.codeExtension : rowFor(step, code).codeExtension;
+        if (code === defaultCode) step.codeExtension = value;
+        else rowFor(step, code).codeExtension = value;
+        changes.push({ field: 'codeExtension', language: code, before: truncate(before, 200), after: truncate(value, 200) });
+      }
+      touched.codeExtension = true;
     }
 
     if (args.setVariables && typeof args.setVariables === 'object') {
@@ -151,6 +171,13 @@ export const translateFlowStepTool = {
         const row = (step.translations || []).find(t => t && t.languageCode === code);
         const st = statusOf(step.message, row ? row.message : null, normText);
         if (st === 'differs' || st === 'missing') drift.push({ field: 'message', language: code, status: st });
+      }
+    }
+    if (touched.codeExtension) {
+      for (const code of otherCodes) {
+        const row = (step.translations || []).find(t => t && t.languageCode === code);
+        const st = statusOf(step.codeExtension, row ? row.codeExtension : null, normCode);
+        if (st === 'differs' || st === 'missing') drift.push({ field: 'codeExtension', language: code, status: st });
       }
     }
     for (const left of touched.vars) {

@@ -22,7 +22,7 @@ function bump(counts, code, status) {
 
 export const getFlowLightTool = {
   name: 'get_flow_light',
-  description: 'Compact, language-aware view of a whole flow in ONE call. Returns every step (id, name, type, sub-flow, message, setVariables, agentic toolCode, connector action names) and every conditional transition, with each translatable value shown per language: the default language verbatim, "=" when a language matches it, the differing text when it does not, and null when that language has no value. Use this to survey or audit a flow, including which parts are translated. Use get_flow_step_for_edit / get_all_links when you need the full untrimmed payload for a deep edit.',
+  description: 'Compact, language-aware view of a whole flow in ONE call. Returns every step (id, name, type, sub-flow, message, setVariables, code extension, agentic toolCode, connector action names) and every conditional transition, with each translatable value shown per language: the default language verbatim, "=" when a language matches it, the differing text when it does not, and null when that language has no value. Use this to survey or audit a flow, including which parts are translated. Use get_flow_step_for_edit / get_all_links when you need the full untrimmed payload for a deep edit.',
   inputSchema: {
     type: 'object',
     required: ['flowId'],
@@ -103,6 +103,19 @@ export const getFlowLightTool = {
             }
             return { left, ...cell };
           });
+        }
+      }
+
+      const extByLang = {};
+      for (const code of otherCodes) extByLang[code] = byLang[code] ? byLang[code].codeExtension : null;
+      const hasExt = normText(s.codeExtension) !== null || otherCodes.some(c => normText(extByLang[c]) !== null);
+      if (hasExt) {
+        const extMax = max === 0 ? 0 : Math.min(max, 200);
+        row.codeExtension = langCell(defaultCode, otherCodes, s.codeExtension, extByLang, normCode, extMax);
+        for (const code of otherCodes) {
+          const st = statusOf(s.codeExtension, extByLang[code], normCode);
+          bump(counts, code, st);
+          if (st === 'differs' || st === 'missing') drift = true;
         }
       }
 

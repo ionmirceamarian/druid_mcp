@@ -12,3 +12,4 @@ swagger.json
 *.tmp
 *.env
 *.env.example
+/docs
