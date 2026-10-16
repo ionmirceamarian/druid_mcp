@@ -13,7 +13,7 @@ function readTenants() {
   const blocks = [];
   let cur = null;
   let label = null;
-  for (const raw of readFileSync(ENV_PATH, 'utf8').split(/\r?\n/)) {
+  for (const raw of readFileSync(ENV_PATH, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/)) {
     const line = raw.trim();
     if (line.startsWith('#')) {
       const m = line.match(/^#+\s*(.*?)\s*#*$/);
