@@ -27,7 +27,7 @@ The server supports two transports:
 
 | Tool | Description |
 |------|-------------|
-| `set_config` | Update `apiBaseUrl`, `apiUsername`, and `apiPassword` at runtime — no restart needed; auth token is automatically invalidated |
+| `set_config` | Switch tenant at runtime: `listTenants: true` lists the tenants in `.env` (no passwords), `tenant: "<host or label>"` loads that tenant's credentials server-side. `apiBaseUrl` / `apiUsername` / `apiPassword` still work. Auth token is invalidated on change |
 
 ### Agents & Solutions
 
@@ -211,7 +211,21 @@ API_USERNAME=your_username_or_email
 API_PASSWORD=your_password
 ```
 
-> **Tip:** You can skip this step and instead call `set_config` from the AI at runtime.
+To work with several tenants, repeat the block once per tenant, with an optional `### LABEL ###` line above it:
+
+```env
+### ASIACELL PROD ###
+API_BASE_URL=https://asiacell.druidplatform.com/
+API_USERNAME=you@example.com
+API_PASSWORD=your_password
+
+### ASIACELL QA ###
+API_BASE_URL=https://asiacellqa.druidplatform.com/
+API_USERNAME=you@example.com
+API_PASSWORD=your_password
+```
+
+The first block is active at startup. Switch with `set_config({ tenant: "asiacellqa" })` or `set_config({ tenant: "ASIACELL QA" })`; passwords never leave the server. Hosts containing `qa`, `dev`, `test`, `uat`, `stg`, `staging` or `sandbox` are reported as development, others as production. Set `DRUID_ENV_FILE` to read tenants from a different file.
 
 ### 3. Run the server
 
