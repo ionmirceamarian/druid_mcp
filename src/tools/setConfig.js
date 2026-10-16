@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 
 const ENV_PATH = process.env.DRUID_ENV_FILE || join(dirname(fileURLToPath(import.meta.url)), '..', '..', '.env');
 
-function readTenants() {
+export function readTenants() {
   const blocks = [];
   let cur = null;
   let label = null;
@@ -36,7 +36,7 @@ function readTenants() {
   return blocks;
 }
 
-const publicTenant = t => ({ label: t.label, host: t.host, env: t.env, url: t.url, username: t.username });
+export const publicTenant = t => ({ label: t.label, host: t.host, env: t.env, url: t.url, username: t.username });
 
 export const configStore = {};
 
