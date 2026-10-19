@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { createHash } from 'node:crypto';
 import { resolveConfig } from './tenants.js';
 
 const tokenCache = new Map();
@@ -10,7 +11,7 @@ export function resetToken() {
 
 export async function getToken() {
   const { baseUrl, username, password } = resolveConfig();
-  const key = `${baseUrl}|${username}`;
+  const key = `${baseUrl}|${username}|${createHash('sha256').update(String(password)).digest('hex')}`;
   const cached = tokenCache.get(key);
   if (cached && Date.now() < cached.expiry) return cached.token;
   if (pendingAuth.has(key)) return pendingAuth.get(key);

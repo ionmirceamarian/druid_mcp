@@ -12,7 +12,7 @@ export const setConfigTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      tenant:      { type: 'string', description: 'Profile id from list_tenants, e.g. asiacell-prod' },
+      tenant:      { type: 'string', description: 'Id of a tenant configured on the server (not one registered with register_tenants)' },
       apiBaseUrl:  { type: 'string', description: 'Base URL of the Druid application, e.g. https://myapp.example.com' },
       apiUsername: { type: 'string', description: 'Username (or email) for authentication' },
       apiPassword: { type: 'string', description: 'Password for authentication' }
@@ -22,7 +22,7 @@ export const setConfigTool = {
     const changed = [];
 
     if (args.tenant) {
-      const p = getProfile(args.tenant);
+      const p = getProfile(args.tenant, { includeSession: false });
       Object.assign(configStore, p);
       changed.push(`tenant=${p.id}`);
     }

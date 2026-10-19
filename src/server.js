@@ -1,5 +1,5 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: new URL('../.env', import.meta.url) });
+import { loadLocalEnv } from './tenants.js';
+loadLocalEnv(new URL('../.env', import.meta.url));
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -17,7 +17,7 @@ import { getEntityFieldsTool }         from './tools/getEntityFields.js';
 import { createEntityTool }            from './tools/createEntity.js';
 import { createFieldTool }             from './tools/createField.js';
 import { setConfigTool }               from './tools/setConfig.js';
-import { tenantContext, resolveConfig, isProd, listTenantsTool } from './tenants.js';
+import { tenantContext, resolveConfig, isProd, listTenantsTool, registerTenantsTool } from './tenants.js';
 
 // Flow tools
 import { getFlowForEditTool }          from './tools/getFlowForEdit.js';
@@ -195,18 +195,18 @@ const tools = [
   chatEndSessionTool
 ];
 
-tools.push(listTenantsTool);
+tools.push(listTenantsTool, registerTenantsTool);
 
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
 
-const NO_TENANT_TOOLS = new Set(['set_config', 'list_tenants', 'chat_set_endpoints']);
+const NO_TENANT_TOOLS = new Set(['set_config', 'list_tenants', 'register_tenants', 'chat_set_endpoints']);
 const WRITE_TOOL = /^(create_|delete_|patch_|publish_|sync_|translate_|save_|update_|clone_|set_entity_web_view|set_web_views|test_)/;
 
 function withTenantSchema(t) {
   if (NO_TENANT_TOOLS.has(t.name)) return t.inputSchema;
   const properties = {
     ...(t.inputSchema?.properties || {}),
-    tenant: { type: 'string', description: 'Tenant profile id from list_tenants (e.g. asiacell-prod). Strongly recommended: overrides the shared set_config default for this call only.' }
+    tenant: { type: 'string', description: 'Tenant id from list_tenants (e.g. asiacell-prod), registered with register_tenants or configured on the server. Overrides the shared set_config default for this call only.' }
   };
   if (WRITE_TOOL.test(t.name)) {
     properties.confirmProd = { type: 'boolean', description: 'Required true when the resolved tenant is production.' };
@@ -215,6 +215,7 @@ function withTenantSchema(t) {
 }
 
 function createServer() {
+  const connectionProfiles = new Map();
   const server = new Server(
     { name: 'druid-mcp', version: '0.1.0' },
     { capabilities: { tools: {} } }
@@ -248,8 +249,8 @@ function createServer() {
         return tool.execute(args);
       };
       const result = NO_TENANT_TOOLS.has(tool.name)
-        ? await tool.execute(request.params.arguments ?? {})
-        : await tenantContext.run({ tenant }, run);
+        ? await tenantContext.run({ profiles: connectionProfiles }, () => tool.execute(request.params.arguments ?? {}))
+        : await tenantContext.run({ tenant, profiles: connectionProfiles }, run);
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
       };
