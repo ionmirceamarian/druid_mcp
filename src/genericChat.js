@@ -16,6 +16,7 @@
 
 import fetch from 'node-fetch';
 import { getToken, apiFetch } from './auth.js';
+import { resolveConfig } from './tenants.js';
 
 export const CHANNEL_ID = 'GenericChat';
 
@@ -28,7 +29,7 @@ const sessions = new Map();
 const endpointOverrides = new Map();
 
 function portalBase() {
-  return (process.env.API_BASE_URL || '').replace(/\/+$/, '');
+  try { return resolveConfig().baseUrl; } catch { return ''; }
 }
 
 function trim(text, max = 500) {

@@ -16,6 +16,7 @@ import { getEntityFieldsTool }         from './tools/getEntityFields.js';
 import { createEntityTool }            from './tools/createEntity.js';
 import { createFieldTool }             from './tools/createField.js';
 import { setConfigTool }               from './tools/setConfig.js';
+import { tenantContext, resolveConfig, isProd, listTenantsTool } from './tenants.js';
 
 // Flow tools
 import { getFlowForEditTool }          from './tools/getFlowForEdit.js';
@@ -193,7 +194,24 @@ const tools = [
   chatEndSessionTool
 ];
 
+tools.push(listTenantsTool);
+
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
+
+const NO_TENANT_TOOLS = new Set(['set_config', 'list_tenants', 'chat_set_endpoints']);
+const WRITE_TOOL = /^(create_|delete_|patch_|publish_|sync_|translate_|save_|update_|clone_|set_entity_web_view|set_web_views|test_)/;
+
+function withTenantSchema(t) {
+  if (NO_TENANT_TOOLS.has(t.name)) return t.inputSchema;
+  const properties = {
+    ...(t.inputSchema?.properties || {}),
+    tenant: { type: 'string', description: 'Tenant profile id from list_tenants (e.g. asiacell-prod). Strongly recommended: overrides the shared set_config default for this call only.' }
+  };
+  if (WRITE_TOOL.test(t.name)) {
+    properties.confirmProd = { type: 'boolean', description: 'Required true when the resolved tenant is production.' };
+  }
+  return { ...t.inputSchema, type: 'object', properties };
+}
 
 function createServer() {
   const server = new Server(
@@ -205,7 +223,7 @@ function createServer() {
     tools: tools.map(t => ({
       name:        t.name,
       description: t.description,
-      inputSchema: t.inputSchema
+      inputSchema: withTenantSchema(t)
     }))
   }));
 
@@ -218,7 +236,19 @@ function createServer() {
       };
     }
     try {
-      const result = await tool.execute(request.params.arguments ?? {});
+      const { tenant, confirmProd, ...args } = request.params.arguments ?? {};
+      const run = async () => {
+        if (WRITE_TOOL.test(tool.name)) {
+          const cfg = resolveConfig();
+          if (isProd(cfg) && confirmProd !== true) {
+            throw new Error(`Refusing ${tool.name} on production tenant ${cfg.id || cfg.baseUrl} without confirmProd: true`);
+          }
+        }
+        return tool.execute(args);
+      };
+      const result = NO_TENANT_TOOLS.has(tool.name)
+        ? await tool.execute(request.params.arguments ?? {})
+        : await tenantContext.run({ tenant }, run);
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
       };

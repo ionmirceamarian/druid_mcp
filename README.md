@@ -27,7 +27,8 @@ The server supports two transports:
 
 | Tool | Description |
 |------|-------------|
-| `set_config` | Update `apiBaseUrl`, `apiUsername`, and `apiPassword` at runtime — no restart needed; auth token is automatically invalidated |
+| `list_tenants` | List tenant profiles from `.env` (`<PREFIX>_API_BASE_URL/_USERNAME/_PASSWORD`). Every other tool accepts `tenant` (e.g. `asiacell-prod`) to run that call against that tenant only, so parallel sessions on different tenants never collide. Write tools on a production tenant require `confirmProd: true`. |
+| `set_config` | Set the shared default tenant (`tenant`, or `apiBaseUrl`/`apiUsername`/`apiPassword`) used by calls without `tenant`. There is no default at startup. |
 
 ### Agents & Solutions
 
