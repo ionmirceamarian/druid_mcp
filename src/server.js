@@ -18,6 +18,7 @@ import { createEntityTool }            from './tools/createEntity.js';
 import { createFieldTool }             from './tools/createField.js';
 import { setConfigTool }               from './tools/setConfig.js';
 import { tenantContext, resolveConfig, isProd, listTenantsTool, registerTenantsTool } from './tenants.js';
+import { verifyTwoFactorTool } from './auth.js';
 
 // Flow tools
 import { getFlowForEditTool }          from './tools/getFlowForEdit.js';
@@ -195,7 +196,7 @@ const tools = [
   chatEndSessionTool
 ];
 
-tools.push(listTenantsTool, registerTenantsTool);
+tools.push(listTenantsTool, registerTenantsTool, verifyTwoFactorTool);
 
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
 
