@@ -23,8 +23,10 @@ async function authenticate(cfg, key, extra = {}) {
     body: JSON.stringify({
       userNameOrEmailAddress: cfg.username,
       password: cfg.password,
-      rememberClient: true,
-      twoFactorRememberClientToken: rememberTokens.get(key) || null,
+      rememberClient: false,
+      singleSignIn: false,
+      returnUrl: null,
+      ...(rememberTokens.has(key) ? { twoFactorRememberClientToken: rememberTokens.get(key) } : {}),
       ...extra
     })
   });
@@ -100,7 +102,7 @@ export const verifyTwoFactorTool = {
   description:
     'Complete a Druid login that requires two-factor verification. Call it after another tool fails with "Two-factor verification required", ' +
     'passing the code the user received (email/SMS) or from their authenticator app, and the same tenant. ' +
-    'On success the session is cached and the device is remembered, so later logins for that user skip 2FA while the server runs.',
+    'On success the session is cached for 23h; after that, or after a server restart, a new code is needed.',
   inputSchema: {
     type: 'object',
     properties: {
