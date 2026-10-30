@@ -111,8 +111,15 @@ export const verifyTwoFactorTool = {
   async execute(args) {
     const cfg = resolveConfig();
     const key = authKey(cfg);
-    const result = await authenticate(cfg, key, { twoFactorVerificationCode: String(args.code).trim() });
+    let result;
+    try {
+      result = await authenticate(cfg, key, { twoFactorVerificationCode: String(args.code).trim() });
+    } catch (err) {
+      twoFactorPending.delete(key);
+      throw err;
+    }
     if (!result.accessToken) {
+      twoFactorPending.delete(key);
       throw new Error(result.requiresTwoFactorVerification ? 'Invalid or expired code. Request a new one by retrying the original tool.' : 'No accessToken in auth response');
     }
     storeToken(key, result);
