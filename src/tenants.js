@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
 
 export const tenantContext = new AsyncLocalStorage();
 export const configStore = {};
@@ -175,15 +176,25 @@ export const registerTenantsTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      envText: { type: 'string', description: 'Full text of the local .env file' }
-    },
-    required: ['envText']
+      envText: { type: 'string', description: 'Full text of the local .env file' },
+      envFile: { type: 'string', description: 'Path of a .env file on the machine running this server (~ allowed). The server reads it itself, so credentials never pass through the chat. Use instead of envText.' },
+      labels: { type: 'array', items: { type: 'string' }, description: 'Only register these blocks, by label or id (e.g. "ASIACELL PROD" or "asiacell-prod"). Default: all.' }
+    }
   },
   async execute(args) {
     const store = tenantContext.getStore();
     if (!store?.profiles) throw new Error('No connection context available');
-    const { profiles } = parseEnvText(args.envText || '');
-    const valid = Object.values(profiles).filter(p => p.baseUrl && p.username && p.password);
+    let text = args.envText || '';
+    if (args.envFile) {
+      const path = String(args.envFile).replace(/^~(?=\/|$)/, homedir());
+      if (!existsSync(path)) throw new Error(`envFile not found: ${path}`);
+      text = readFileSync(path, 'utf8');
+    }
+    const { profiles } = parseEnvText(text);
+    const wanted = (args.labels || []).map(slug);
+    const valid = Object.values(profiles)
+      .filter(p => p.baseUrl && p.username && p.password)
+      .filter(p => !wanted.length || wanted.includes(p.id));
     if (!valid.length) throw new Error('No complete tenant blocks (base URL, username, password) found in envText');
     for (const p of valid) {
       p.handle = registryKey(p);
