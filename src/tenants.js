@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, privateDecrypt, createDecipheriv, constants } from 'node:crypto';
 import { homedir } from 'node:os';
 
 export const tenantContext = new AsyncLocalStorage();
@@ -10,6 +10,19 @@ export const configStore = {};
 const localProfiles = {};
 const registry = new Map();
 const REGISTRY_TTL_MS = 24 * 60 * 60 * 1000;
+const sealKeys = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+});
+
+function unseal(sealed) {
+  const o = JSON.parse(Buffer.from(String(sealed), 'base64').toString('utf8'));
+  const key = privateDecrypt({ key: sealKeys.privateKey, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' }, Buffer.from(o.k, 'base64'));
+  const d = createDecipheriv('aes-256-gcm', key, Buffer.from(o.iv, 'base64'));
+  d.setAuthTag(Buffer.from(o.t, 'base64'));
+  return Buffer.concat([d.update(Buffer.from(o.d, 'base64')), d.final()]).toString('utf8');
+}
 
 function registryKey(p) {
   return createHash('sha256').update(`${p.baseUrl}\n${p.username}\n${p.password}`).digest('hex').slice(0, 24);
@@ -165,6 +178,15 @@ export const listTenantsTool = {
   }
 };
 
+export const registrationKeyTool = {
+  name: 'get_registration_key',
+  description: 'Public key for sealing a local .env (scripts/seal-env.mjs) before register_tenants with envSealed, so credentials never pass through the chat in clear text. The key changes on every server restart.',
+  inputSchema: { type: 'object', properties: {} },
+  async execute() {
+    return { publicKey: sealKeys.publicKey };
+  }
+};
+
 export const registerTenantsTool = {
   name: 'register_tenants',
   description:
@@ -177,6 +199,7 @@ export const registerTenantsTool = {
     type: 'object',
     properties: {
       envText: { type: 'string', description: 'Full text of the local .env file' },
+      envSealed: { type: 'string', description: 'Output of scripts/seal-env.mjs: the local .env encrypted with the get_registration_key public key. Use when this server cannot read the .env file itself.' },
       envFile: { type: 'string', description: 'Path of a .env file on the machine running this server (~ allowed). The server reads it itself, so credentials never pass through the chat. Use instead of envText.' },
       labels: { type: 'array', items: { type: 'string' }, description: 'Only register these blocks, by label or id (e.g. "ASIACELL PROD" or "asiacell-prod"). Default: all.' }
     }
@@ -185,9 +208,16 @@ export const registerTenantsTool = {
     const store = tenantContext.getStore();
     if (!store?.profiles) throw new Error('No connection context available');
     let text = args.envText || '';
+    if (args.envSealed) {
+      try {
+        text = unseal(args.envSealed);
+      } catch {
+        throw new Error('envSealed could not be decrypted: the server restarted or the key is wrong. Call get_registration_key again and reseal.');
+      }
+    }
     if (args.envFile) {
       const path = String(args.envFile).replace(/^~(?=\/|$)/, homedir());
-      if (!existsSync(path)) throw new Error(`envFile not found: ${path}`);
+      if (!existsSync(path)) throw new Error(`envFile not found: ${path}. The path is read on the machine running this server; if the .env is elsewhere, use get_registration_key and envSealed.`);
       text = readFileSync(path, 'utf8');
     }
     const { profiles } = parseEnvText(text);

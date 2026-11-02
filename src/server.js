@@ -17,7 +17,7 @@ import { getEntityFieldsTool }         from './tools/getEntityFields.js';
 import { createEntityTool }            from './tools/createEntity.js';
 import { createFieldTool }             from './tools/createField.js';
 import { setConfigTool }               from './tools/setConfig.js';
-import { tenantContext, resolveConfig, isProd, listTenantsTool, registerTenantsTool } from './tenants.js';
+import { tenantContext, resolveConfig, isProd, listTenantsTool, registerTenantsTool, registrationKeyTool } from './tenants.js';
 import { verifyTwoFactorTool } from './auth.js';
 
 // Flow tools
@@ -196,11 +196,11 @@ const tools = [
   chatEndSessionTool
 ];
 
-tools.push(listTenantsTool, registerTenantsTool, verifyTwoFactorTool);
+tools.push(listTenantsTool, registerTenantsTool, registrationKeyTool, verifyTwoFactorTool);
 
 const toolMap = Object.fromEntries(tools.map(t => [t.name, t]));
 
-const NO_TENANT_TOOLS = new Set(['set_config', 'list_tenants', 'register_tenants', 'chat_set_endpoints']);
+const NO_TENANT_TOOLS = new Set(['set_config', 'list_tenants', 'register_tenants', 'get_registration_key', 'chat_set_endpoints']);
 const WRITE_TOOL = /^(create_|delete_|patch_|publish_|sync_|translate_|save_|update_|clone_|set_entity_web_view|set_web_views|test_)/;
 
 function withTenantSchema(t) {
