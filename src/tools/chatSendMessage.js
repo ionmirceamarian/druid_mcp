@@ -46,10 +46,11 @@ export const chatSendMessageTool = {
       timeout: args.timeout ?? 50
     });
 
+    const longPolling = args.longPolling ?? session.useLongPolling ?? false;
     let activities = filterActivities(sent.activities);
     let lastHttp = sent.http;
 
-    if (args.longPolling) {
+    if (longPolling) {
       const polled = await drainMessages(session, {
         waitSeconds: args.waitSeconds ?? 15
       });
@@ -81,7 +82,7 @@ export const chatSendMessageTool = {
       historyError,
       note: activities.length
         ? undefined
-        : (args.longPolling
+        : (longPolling
             ? 'No replies received within the wait window. Try a longer waitSeconds, or check the agent flow in the debugging tool.'
             : 'The agent accepted the message but no reply appeared, over HTTP or in ConversationHistory. See httpResponse below for what the runtime sent back. ' +
               'Common causes: the agent replies only to a matched intent (welcome messages are routed to DirectLine, not Generic Chat), ' +

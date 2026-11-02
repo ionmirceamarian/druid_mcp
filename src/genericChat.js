@@ -27,6 +27,19 @@ const AUTHORIZE_PATH = '/api/services/app/Chat/AuthorizeAnonymousAsync';
 const sessions = new Map();
 // botId (lowercase) | '*' -> { authorizeUrl, agentUrl }
 const endpointOverrides = new Map();
+const channelEndpoints = new Map();
+
+export async function loadChannelEndpoints(botId) {
+  const key = String(botId).toLowerCase();
+  if (channelEndpoints.has(key)) return channelEndpoints.get(key);
+  const data = await apiFetch(`/api/services/app/Bot/GetBotForEditChannelsAsync?Id=${encodeURIComponent(botId)}`);
+  const ch = (data.result ?? data)?.druidCustomChannel;
+  const found = ch && (ch.authUrl || ch.botUrl)
+    ? { authorizeUrl: ch.authUrl || null, agentUrl: ch.botUrl || null, useLongPolling: !!ch.useLongPolling, channelStatus: ch.channelStatus ?? null }
+    : null;
+  channelEndpoints.set(key, found);
+  return found;
+}
 
 function portalBase() {
   try { return resolveConfig().baseUrl; } catch { return ''; }
@@ -70,10 +83,11 @@ export function clearEndpoints(botId) {
 
 function overrideFor(botId) {
   const own = endpointOverrides.get(String(botId).toLowerCase()) ?? {};
+  const ch = channelEndpoints.get(String(botId).toLowerCase()) ?? {};
   const all = endpointOverrides.get('*') ?? {};
   return {
-    authorizeUrl: own.authorizeUrl ?? all.authorizeUrl ?? process.env.CHAT_AUTHORIZE_URL,
-    agentUrl:     own.agentUrl     ?? all.agentUrl     ?? process.env.CHAT_AGENT_URL
+    authorizeUrl: own.authorizeUrl ?? ch.authorizeUrl ?? all.authorizeUrl ?? process.env.CHAT_AUTHORIZE_URL,
+    agentUrl:     own.agentUrl     ?? ch.agentUrl     ?? all.agentUrl     ?? process.env.CHAT_AGENT_URL
   };
 }
 
@@ -277,6 +291,13 @@ export async function getSession(botId, opts = {}) {
     return existing;
   }
 
+  let channel = null;
+  try {
+    channel = await loadChannelEndpoints(botId);
+  } catch {
+    channel = null;
+  }
+
   // Token lives 1h. On refresh, reuse conversationId/userId so context is kept.
   const { dto, authorizeUrl } = await authorize(botId, {
     queryString:    opts.queryString ?? existing?.queryString ?? '',
@@ -297,6 +318,8 @@ export async function getSession(botId, opts = {}) {
     createdAt:      existing?.createdAt ?? new Date().toISOString(),
     turns:          existing?.turns ?? 0,
     authorizeUrl,
+    useLongPolling: channel?.useLongPolling ?? false,
+    channelFound:   !!channel,
     agentBase:      existing?.agentBase ?? null,             // pinned once a call succeeds
     agentCandidates: agentCandidates(botId, authorizeUrl, dto)
   };
@@ -330,6 +353,7 @@ export function publicSession(s) {
     turns:             s.turns,
     tokenExpiresInSec: Math.max(0, Math.round((s.tokenExpiresAt - Date.now()) / 1000)),
     authorizeUrl:      s.authorizeUrl,
+    endpointsFromChannel: !!s.channelFound,
     agentUrl:          s.agentBase ? `${s.agentBase}/messages` : null
   };
 }
