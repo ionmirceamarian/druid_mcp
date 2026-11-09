@@ -104,6 +104,7 @@ import { chatEndSessionTool }                       from './tools/chatEndSession
 // Dashboard tools
 import { getDashboardsTool }                          from './tools/getDashboards.js';
 import { getDashboardForEditTool }                    from './tools/getDashboardForEdit.js';
+import { getBotKpisTool }                            from './tools/getBotKpis.js';
 import { createOrUpdateDashboardTool }                from './tools/createOrUpdateDashboard.js';
 import { deleteDashboardTool }                        from './tools/deleteDashboard.js';
 
@@ -185,6 +186,7 @@ const tools = [
   // Dashboard tools
   getDashboardsTool,
   getDashboardForEditTool,
+  getBotKpisTool,
   createOrUpdateDashboardTool,
   deleteDashboardTool,
   // Chat (Druid Generic Chat) test tools
