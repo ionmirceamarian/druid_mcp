@@ -46,7 +46,7 @@ async function authenticate(cfg, key, extra = {}) {
     body: JSON.stringify({
       userNameOrEmailAddress: cfg.username,
       password: cfg.password,
-      rememberClient: true,
+      rememberClient: process.env.DRUID_REMEMBER_CLIENT === "true",
       singleSignIn: false,
       returnUrl: null,
       ...(rememberTokens.get(key) || openRemember(cfg) ? { twoFactorRememberClientToken: rememberTokens.get(key) || openRemember(cfg) } : {}),
