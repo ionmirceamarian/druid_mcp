@@ -32,7 +32,7 @@ const channelEndpoints = new Map();
 export async function loadChannelEndpoints(botId) {
   const key = String(botId).toLowerCase();
   if (channelEndpoints.has(key)) return channelEndpoints.get(key);
-  const data = await apiFetch(`/api/services/app/Bot/GetBotForEditChannelsAsync?Id=${encodeURIComponent(botId)}`);
+  const data = await apiFetch(`/api/services/app/Bot/GetBotForEditChannelsAsync?Id=${encodeURIComponent(botId)}`, { quiet: true });
   const ch = (data.result ?? data)?.druidCustomChannel;
   const found = ch && (ch.authUrl || ch.botUrl)
     ? { authorizeUrl: ch.authUrl || null, agentUrl: ch.botUrl || null, useLongPolling: !!ch.useLongPolling, channelStatus: ch.channelStatus ?? null }
@@ -245,7 +245,7 @@ export async function authorize(botId, opts = {}) {
     // The endpoint is anonymous, but some deployments still want an identity.
     if (!res.ok && (res.status === 401 || res.status === 403)) {
       let adminToken = null;
-      try { adminToken = await getToken(); } catch { /* no creds configured */ }
+      try { adminToken = await getToken({ quiet: true }); } catch {}
       if (adminToken) res = await postJson(url, body, { bearer: adminToken });
     }
 
@@ -430,7 +430,7 @@ async function fetchHistoryPage(session) {
   params.set('PageSize',   '50');
   params.set('PageNumber', '1');
 
-  const data = await apiFetch(`/api/services/app/ConversationHistory/GetAdminConversationHistoryPaged?${params}`);
+  const data = await apiFetch(`/api/services/app/ConversationHistory/GetAdminConversationHistoryPaged?${params}`, { quiet: true });
   const items = (data.result ?? data)?.items ?? [];
 
   return items.filter(i =>

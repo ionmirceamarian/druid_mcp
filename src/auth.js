@@ -97,16 +97,18 @@ async function requestSecondFactor(cfg, key, result) {
   throw new Error(`Two-factor verification required for ${cfg.username} on ${label}. ${how}, then call verify_two_factor with "code" and the same tenant.`);
 }
 
-export async function getToken() {
+export async function getToken({ quiet = false } = {}) {
   const cfg = resolveConfig();
   const key = authKey(cfg);
   const cached = tokenCache.get(key);
   if (cached && Date.now() < cached.expiry) return cached.token;
   if (pendingAuth.has(key)) return pendingAuth.get(key);
+  if (quiet && twoFactorPending.has(key)) throw new Error('Not logged in: two-factor verification pending');
 
   const p = (async () => {
     const result = await authenticate(cfg, key);
     if (result.requiresTwoFactorVerification || result.requiresTwoFactorAuthenticator) {
+      if (quiet) throw new Error('Not logged in: two-factor verification required');
       await requestSecondFactor(cfg, key, result);
     }
     return storeToken(key, result);
@@ -159,8 +161,8 @@ export const verifyTwoFactorTool = {
   }
 };
 
-export async function apiFetch(path, options = {}) {
-  const token = await getToken();
+export async function apiFetch(path, { quiet = false, ...options } = {}) {
+  const token = await getToken({ quiet });
   const { baseUrl } = resolveConfig();
 
   const res = await fetch(`${baseUrl}${path}`, {
