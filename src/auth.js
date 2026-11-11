@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { createHash } from 'node:crypto';
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { resolveConfig } from './tenants.js';
 
 const tokenCache = new Map();
@@ -10,6 +10,29 @@ const RESEND_AFTER_MS = 3 * 60 * 1000;
 
 export function resetToken() {
   tokenCache.clear();
+}
+
+function blobKey(cfg) {
+  return createHash('sha256').update(`druid-2fa-remember\n${cfg.baseUrl}\n${cfg.username}\n${cfg.password}`).digest();
+}
+
+function sealRemember(cfg, token) {
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', blobKey(cfg), iv);
+  const d = Buffer.concat([c.update(token, 'utf8'), c.final()]);
+  return Buffer.concat([iv, c.getAuthTag(), d]).toString('base64url');
+}
+
+function openRemember(cfg) {
+  if (!cfg.rememberBlob) return null;
+  try {
+    const b = Buffer.from(cfg.rememberBlob, 'base64url');
+    const d = createDecipheriv('aes-256-gcm', blobKey(cfg), b.subarray(0, 12));
+    d.setAuthTag(b.subarray(12, 28));
+    return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 function authKey(cfg) {
@@ -23,10 +46,10 @@ async function authenticate(cfg, key, extra = {}) {
     body: JSON.stringify({
       userNameOrEmailAddress: cfg.username,
       password: cfg.password,
-      rememberClient: false,
+      rememberClient: true,
       singleSignIn: false,
       returnUrl: null,
-      ...(rememberTokens.has(key) ? { twoFactorRememberClientToken: rememberTokens.get(key) } : {}),
+      ...(rememberTokens.get(key) || openRemember(cfg) ? { twoFactorRememberClientToken: rememberTokens.get(key) || openRemember(cfg) } : {}),
       ...extra
     })
   });
@@ -102,7 +125,8 @@ export const verifyTwoFactorTool = {
   description:
     'Complete a Druid login that requires two-factor verification. Call it after another tool fails with "Two-factor verification required", ' +
     'passing the code the user received (email/SMS) or from their authenticator app, and the same tenant. ' +
-    'On success the session is cached for 23h; after that, or after a server restart, a new code is needed.',
+    'On success the session is cached for 23h. When Druid remembers the device, the result has rememberBlob: save it to the local .env block with scripts/save-2fa-remember.mjs so later logins, even after a server restart, skip the code. ' +
+    'The blob is encrypted with the tenant credentials and is useless without them.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -129,7 +153,8 @@ export const verifyTwoFactorTool = {
       success: true,
       tenant: cfg.id || cfg.baseUrl,
       username: cfg.username,
-      rememberedDevice: Boolean(result.twoFactorRememberClientToken)
+      rememberedDevice: Boolean(result.twoFactorRememberClientToken),
+      ...(result.twoFactorRememberClientToken ? { rememberBlob: sealRemember(cfg, result.twoFactorRememberClientToken) } : {})
     };
   }
 };

@@ -17,7 +17,7 @@ for (const raw of readFileSync(envPath, 'utf8').replace(/^﻿/, '').split(/\r?\n
     if (m && m[1]) block = { id: slug(m[1]), lines: [line] };
     continue;
   }
-  if (block && /^API_(BASE_URL|USERNAME|PASSWORD)=/.test(line)) {
+  if (block && /^API_(BASE_URL|USERNAME|PASSWORD|2FA_REMEMBER)=/.test(line)) {
     block.lines.push(line);
     if (!out.includes(block)) out.push(block);
   }

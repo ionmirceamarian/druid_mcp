@@ -35,7 +35,7 @@ function registryGet(key) {
   entry.expires = Date.now() + REGISTRY_TTL_MS;
   return entry.profile;
 }
-const API_KEYS = { API_BASE_URL: 'baseUrl', API_USERNAME: 'username', API_PASSWORD: 'password' };
+const API_KEYS = { API_BASE_URL: 'baseUrl', API_USERNAME: 'username', API_PASSWORD: 'password', API_2FA_REMEMBER: 'rememberBlob' };
 
 function slug(label) {
   return String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -64,7 +64,7 @@ export function parseEnvText(text) {
     let val = line.slice(eq + 1).trim();
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
 
-    const pre = key.match(/^([A-Za-z0-9_]+?)_(API_BASE_URL|API_USERNAME|API_PASSWORD)$/);
+    const pre = key.match(/^([A-Za-z0-9_]+?)_(API_BASE_URL|API_USERNAME|API_PASSWORD|API_2FA_REMEMBER)$/);
     if (pre) {
       const id = slug(pre[1]);
       profiles[id] = profiles[id] || { id };
@@ -105,7 +105,8 @@ function serverProfiles() {
       id,
       baseUrl:  process.env[`${m[1]}_API_BASE_URL`],
       username: process.env[`${m[1]}_API_USERNAME`],
-      password: process.env[`${m[1]}_API_PASSWORD`]
+      password: process.env[`${m[1]}_API_PASSWORD`],
+      rememberBlob: process.env[`${m[1]}_API_2FA_REMEMBER`]
     });
   }
   return { ...fromEnv, ...localProfiles };
@@ -142,7 +143,8 @@ export function resolveConfig() {
       id: null,
       baseUrl:  process.env.API_BASE_URL.replace(/\/+$/, ''),
       username: process.env.API_USERNAME,
-      password: process.env.API_PASSWORD
+      password: process.env.API_PASSWORD,
+      rememberBlob: process.env.API_2FA_REMEMBER
     };
   }
   throw new Error(`No tenant selected. Pass "tenant" (available: ${availableTenantIds().join(', ') || 'none'}) or call set_config.`);
