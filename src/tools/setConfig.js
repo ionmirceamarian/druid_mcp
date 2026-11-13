@@ -1,4 +1,3 @@
-import { resetToken } from '../auth.js';
 import { configStore, getProfile } from '../tenants.js';
 
 export { configStore };
@@ -40,13 +39,11 @@ export const setConfigTool = {
       changed.push('API_PASSWORD');
     }
 
-    if (changed.length) resetToken();
-
     return {
       success: true,
       updated: changed,
       message: changed.length
-        ? `Updated: ${changed.join(', ')}. Token cache cleared.`
+        ? `Updated: ${changed.join(', ')}.`
         : 'No values provided — nothing changed.'
     };
   }
